@@ -10,11 +10,35 @@ const BALL_RADIUS: f32 = 10.0;
 const PADDLE_SPEED: f32 = 5.0;
 const BALL_SPEED: f32 = 2.0;
 
+struct Paddle {
+    pos: na::Point2<f32>,
+    score: i32,
+}
+
+impl Paddle {
+    fn new(x: f32, y: f32) -> Self {
+        Self {
+            pos: na::Point2::new(x, y),
+            score: 0,
+        }
+    }
+
+    fn update(&mut self, _ctx: &mut ggez::Context) -> GameResult {
+        Ok(())
+    }
+
+    fn draw(&mut self, ctx: &mut ggez::Context) -> GameResult {
+        let rect = graphics::Rect::new(self.pos.x, self.pos.y, PADDLE_WIDTH, PADDLE_HEIGHT);
+        let color = Color::WHITE;
+        let mesh = graphics::Mesh::new_rectangle(ctx, DrawMode::fill(), rect, color)?;
+        graphics::draw(ctx, &mesh, graphics::DrawParam::default())?;
+        Ok(())
+    }
+}
+
 struct PongGame {
-    player1_score: i32,
-    player2_score: i32,
-    player1_pos: f32,
-    player2_pos: f32,
+    player1: Paddle,
+    player2: Paddle,
     ball_pos: na::Point2<f32>,
     ball_velocity: na::Vector2<f32>,
 }
@@ -22,10 +46,8 @@ struct PongGame {
 impl PongGame {
     fn new() -> Self {
         Self {
-            player1_score: 0,
-            player2_score: 0,
-            player1_pos: WINDOW_HEIGHT / 2.0 - PADDLE_HEIGHT / 2.0,
-            player2_pos: WINDOW_HEIGHT / 2.0 - PADDLE_HEIGHT / 2.0,
+            player1: Paddle::new(0.0, WINDOW_HEIGHT / 2.0 - PADDLE_HEIGHT / 2.0),
+            player2: Paddle::new(WINDOW_WIDTH - PADDLE_WIDTH, WINDOW_HEIGHT / 2.0 - PADDLE_HEIGHT / 2.0),
             ball_pos: na::Point2::new(WINDOW_WIDTH / 2.0, WINDOW_HEIGHT / 2.0),
             ball_velocity: na::Vector2::new(BALL_SPEED, BALL_SPEED),
         }
@@ -41,20 +63,20 @@ impl PongGame {
         }
 
         // Check for collisions with paddles
-        if self.ball_pos.x <= PADDLE_WIDTH && (self.ball_pos.y >= self.player1_pos && self.ball_pos.y <= self.player1_pos + PADDLE_HEIGHT) {
+        if self.ball_pos.x <= PADDLE_WIDTH && (self.ball_pos.y >= self.player1.pos.y && self.ball_pos.y <= self.player1.pos.y + PADDLE_HEIGHT) {
             self.ball_velocity.x *= -1.0;
         }
 
-        if self.ball_pos.x >= WINDOW_WIDTH - PADDLE_WIDTH && (self.ball_pos.y >= self.player2_pos && self.ball_pos.y <= self.player2_pos + PADDLE_HEIGHT) {
+        if self.ball_pos.x >= WINDOW_WIDTH - PADDLE_WIDTH && (self.ball_pos.y >= self.player2.pos.y && self.ball_pos.y <= self.player2.pos.y + PADDLE_HEIGHT) {
             self.ball_velocity.x *= -1.0;
         }
 
         // Check for scoring
         if self.ball_pos.x <= 0.0 {
-            self.player2_score += 1;
+            self.player2.score += 1;
             self.reset_ball();
         } else if self.ball_pos.x >= WINDOW_WIDTH {
-            self.player1_score += 1;
+            self.player1.score += 1;
             self.reset_ball();
         }
 
@@ -66,13 +88,8 @@ impl PongGame {
         graphics::clear(ctx, Color::BLACK);
 
         // Draw paddles
-        let player1_rect = graphics::Rect::new(0.0, self.player1_pos, PADDLE_WIDTH, PADDLE_HEIGHT);
-        let player2_rect = graphics::Rect::new(WINDOW_WIDTH - PADDLE_WIDTH, self.player2_pos, PADDLE_WIDTH, PADDLE_HEIGHT);
-        let paddle_color = Color::WHITE;
-        let paddle_mesh = graphics::Mesh::new_rectangle(ctx, DrawMode::fill(), player1_rect, paddle_color)?;
-        graphics::draw(ctx, &paddle_mesh, graphics::DrawParam::default())?;
-        let paddle_mesh = graphics::Mesh::new_rectangle(ctx, DrawMode::fill(), player2_rect, paddle_color)?;
-        graphics::draw(ctx, &paddle_mesh, graphics::DrawParam::default())?;
+        self.player1.draw(ctx)?;
+        self.player2.draw(ctx)?;
 
         // Draw ball
         let ball_mesh = graphics::Mesh::new_circle(
@@ -86,7 +103,7 @@ impl PongGame {
         graphics::draw(ctx, &ball_mesh, graphics::DrawParam::default())?;
 
         // Draw scores
-        let score_text = format!("{} - {}", self.player1_score, self.player2_score);
+        let score_text = format!("{} - {}", self.player1.score, self.player2.score);
         let text = Text::new(TextFragment::new(score_text).color(Color::WHITE));
         graphics::draw(ctx, &text, (na::Point2::new(10.0, 10.0),))?;
 
@@ -101,4 +118,20 @@ impl PongGame {
 }
 
 impl event::EventHandler<ggez::GameError> for PongGame {
-    fn update(&
+    fn update(&mut self, ctx: &mut ggez::Context) -> GameResult {
+        self.update(ctx)
+    }
+
+    fn draw(&mut self, ctx: &mut ggez::Context) -> GameResult {
+        self.draw(ctx)
+    }
+}
+
+fn main() -> GameResult {
+    let (mut ctx, mut event_loop) = ContextBuilder::new("pong_game", "Your Name")
+        .window_setup(ggez::conf::WindowSetup::default().title("Pong Game"))
+        .window_mode(ggez::conf::WindowMode::default().dimensions(WINDOW_WIDTH, WINDOW_HEIGHT))
+        .build()?;
+    let mut game = PongGame::new();
+    event::run(&mut ctx, &mut event_loop, &mut game)
+}
